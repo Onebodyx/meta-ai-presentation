@@ -30,3 +30,11 @@ def try_apply_uci_move(board: chess.Board, san_history: list[str], uci: str) -> 
     board.push(move)
     san_history.append(san)
     return None
+
+
+def undo_last_move(board: chess.Board, san_history: list[str]) -> None:
+    """Откатывает один полуход на доске и последнюю запись SAN в истории (если есть)."""
+    if not san_history:
+        return
+    san_history.pop()
+    board.pop()

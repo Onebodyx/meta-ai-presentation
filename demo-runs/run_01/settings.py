@@ -13,6 +13,20 @@ load_dotenv(_ROOT / ".env")
 STOCKFISH_PATH: str = (os.getenv("STOCKFISH_PATH") or "").strip()
 
 
+def _int_env(name: str, default: int) -> int:
+    raw = (os.getenv(name) or "").strip()
+    if not raw:
+        return default
+    try:
+        return int(raw)
+    except ValueError:
+        return default
+
+
+STOCKFISH_DEPTH: int = max(1, min(64, _int_env("STOCKFISH_DEPTH", 16)))
+STOCKFISH_MOVETIME_MS: int = max(0, _int_env("STOCKFISH_MOVETIME_MS", 0))
+
+
 def _float_env(name: str, default: float) -> float:
     raw = (os.getenv(name) or "").strip()
     if not raw:
