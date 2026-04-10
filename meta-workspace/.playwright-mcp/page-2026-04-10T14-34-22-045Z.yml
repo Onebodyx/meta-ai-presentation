@@ -1,0 +1,41 @@
+- generic [ref=e3]:
+  - banner [ref=e6]:
+    - generic [ref=e9]:
+      - button "Deploy" [ref=e11] [cursor=pointer]:
+        - generic [ref=e13]: Deploy
+      - button "Main menu" [ref=e15] [cursor=pointer]:
+        - img [ref=e16]
+  - generic [ref=e19]:
+    - heading "Chess Coach" [level=1] [ref=e24]:
+      - text: Chess Coach
+      - generic [ref=e25]:
+        - link "Link to heading":
+          - /url: "#chess-coach"
+          - img
+    - paragraph [ref=e30]: "Партия в сессии: ввод хода строго в UCI (например e2e4). Движок и LLM — на следующих этапах."
+    - img [ref=e36]
+    - generic [ref=e199]:
+      - generic [ref=e200]:
+        - paragraph [ref=e203]: Ход (UCI)
+        - button "Help for Ход (UCI)" [ref=e207] [cursor=pointer]:
+          - img [ref=e208]
+      - textbox "Ход (UCI)" [ref=e213]:
+        - /placeholder: например e2e4, e1g1, e7e8q
+        - text: e2e4
+    - generic [ref=e215]:
+      - button "Новая партия" [active] [ref=e220] [cursor=pointer]:
+        - paragraph [ref=e224]: Новая партия
+      - button "Сделать ход" [ref=e229] [cursor=pointer]:
+        - paragraph [ref=e233]: Сделать ход
+    - heading "История ходов (UCI)" [level=3] [ref=e238]:
+      - text: История ходов (UCI)
+      - generic [ref=e239]:
+        - link "Link to heading":
+          - /url: "#istoriya-khodov-uci"
+          - img
+    - code [ref=e244]: (пока нет ходов)
+    - group [ref=e247]:
+      - 'generic "keyboard_arrow_right Диагностика: Stockfish и Cursor Cloud" [ref=e248] [cursor=pointer]':
+        - generic [ref=e249]:
+          - generic [ref=e251]: keyboard_arrow_right
+          - paragraph [ref=e254]: "Диагностика: Stockfish и Cursor Cloud"
