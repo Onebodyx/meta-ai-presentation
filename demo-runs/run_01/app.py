@@ -15,6 +15,7 @@ import chess
 import chess.svg
 import streamlit as st
 
+import chess_explanation
 import chess_logic
 import cursor_cloud
 import settings
@@ -30,12 +31,14 @@ def _ensure_session() -> None:
         st.session_state.move_history = []
     if "last_engine_analysis" not in st.session_state:
         st.session_state.last_engine_analysis = None
+    chess_explanation.ensure_explanation_session_keys(st.session_state)
 
 
 def _reset_game() -> None:
     st.session_state.board = chess.Board()
     st.session_state.move_history = []
     st.session_state.last_engine_analysis = None
+    chess_explanation.reset_explanation_session_keys(st.session_state)
 
 
 def _board_svg(board: chess.Board) -> str:
@@ -66,7 +69,7 @@ st.title("Chess Coach")
 st.caption(
     "Партия в сессии браузера: ходы в UCI. Легальность хода проверяет python-chess; "
     "ответ соперника, оценка и топ вариантов — только Stockfish (см. `STOCKFISH_PATH` в `.env`). "
-    "Облачный LLM — отдельный этап."
+    "Текстовое объяснение вариантов — по кнопке, через Cursor Cloud (см. `.env`)."
 )
 
 st.markdown(_board_svg(board), unsafe_allow_html=True)
@@ -103,6 +106,7 @@ if submitted:
                 st.session_state.last_engine_analysis = stockfish_engine.build_analysis_after_user_only(
                     board, uci, user_san
                 )
+                chess_explanation.reset_explanation_session_keys(st.session_state)
             else:
                 try:
                     limit = stockfish_engine.search_limit_from_settings()
@@ -118,7 +122,10 @@ if submitted:
                 except stockfish_engine.EngineError as ex:
                     chess_logic.undo_last_move(board, move_history)
                     st.session_state.last_engine_analysis = None
+                    chess_explanation.reset_explanation_session_keys(st.session_state)
                     st.error(str(ex))
+                else:
+                    chess_explanation.reset_explanation_session_keys(st.session_state)
             st.rerun()
 
 if st.button("Новая партия", type="primary"):
@@ -169,6 +176,43 @@ if last_analysis:
             )
         st.dataframe(tbl, hide_index=True, use_container_width=True)
 
+        st.subheader("Объяснение вариантов")
+        key_ok = bool(settings.CURSOR_CLOUD_AGENTS_API_KEY.strip())
+        repo_ok = bool(settings.CURSOR_CLOUD_AGENT_REPOSITORY.strip())
+        if not key_ok or not repo_ok:
+            st.info(
+                "Чтобы запросить объяснение, задайте в `.env` переменные "
+                "`CURSOR_CLOUD_AGENTS_API_KEY` и `CURSOR_CLOUD_AGENT_REPOSITORY` (URL репозитория GitHub для Cloud Agents)."
+            )
+        explain_btn = st.button(
+            "Запросить объяснение для текущей позиции",
+            disabled=not (key_ok and repo_ok),
+            help="Обращение к Cursor Cloud выполняется только по этой кнопке, без автозапроса после хода.",
+        )
+        if explain_btn:
+            with st.spinner("Запрос объяснения в Cursor Cloud…"):
+                prompt = chess_explanation.build_agent_prompt(last_analysis)
+                out = cursor_cloud.CursorCloudClient().run_prompt_and_collect_reply(
+                    prompt,
+                    repository_url=settings.CURSOR_CLOUD_AGENT_REPOSITORY,
+                    ref=settings.CURSOR_CLOUD_AGENT_REF or None,
+                )
+            if isinstance(out, cursor_cloud.AgentRunErr):
+                st.session_state.llm_explanation_error = out.message
+                st.session_state.llm_explanation_text = None
+            else:
+                st.session_state.llm_explanation_error = None
+                st.session_state.llm_explanation_text = out
+            st.session_state.llm_explanation_fen = last_analysis.get("fen")
+
+        cur_fen = last_analysis.get("fen")
+        if st.session_state.llm_explanation_error:
+            st.warning(st.session_state.llm_explanation_error)
+        if st.session_state.llm_explanation_text:
+            if st.session_state.llm_explanation_fen != cur_fen:
+                st.caption("Это объяснение относится к предыдущей позиции — запросите заново.")
+            st.markdown(st.session_state.llm_explanation_text)
+
 st.subheader("История ходов")
 if not move_history:
     st.caption("Пока ходов нет — начните с белых (например e2e4).")
@@ -214,6 +258,18 @@ with st.expander("Диагностика: Stockfish и Cursor Cloud"):
         explicit_model if explicit_model else "не передаётся (выбор на стороне Cursor Cloud)",
     )
     st.metric("CURSOR_CLOUD_TIMEOUT_SEC", f"{settings.CURSOR_CLOUD_TIMEOUT_SEC:g} с")
+    st.caption(
+        f"Объяснения: max ожидание агента **{settings.CURSOR_CLOUD_EXPLAIN_MAX_WAIT_SEC:g}** с, "
+        f"интервал опроса **{settings.CURSOR_CLOUD_EXPLAIN_POLL_SEC:g}** с, "
+        f"HTTP **{settings.CURSOR_CLOUD_EXPLAIN_HTTP_TIMEOUT_SEC:g}** с "
+        f"(`CURSOR_CLOUD_EXPLAIN_*`)."
+    )
+    st.metric(
+        "CURSOR_CLOUD_AGENT_REPOSITORY",
+        "задан" if settings.CURSOR_CLOUD_AGENT_REPOSITORY.strip() else "пусто",
+    )
+    ref_disp = settings.CURSOR_CLOUD_AGENT_REF.strip()
+    st.caption(f"CURSOR_CLOUD_AGENT_REF: `{ref_disp or '(не задан)'}`")
 
     if st.button("Проверить подключение к Cursor Cloud"):
         result = cursor_cloud.CursorCloudClient().verify_credentials()
