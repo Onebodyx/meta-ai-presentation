@@ -10,3 +10,6 @@ __pycache__/
 # OS / editor
 .DS_Store
 Thumbs.db
+
+# Stockfish: бинарники >100 MB не принимает GitHub без LFS
+stockfish/
